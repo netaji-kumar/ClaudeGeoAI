@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "mcp-server-arcgis"
+version = "0.1.0"
+description = "MCP server for ArcGIS Enterprise — Feature Services, Map Services, WFS/WMS, Portal Web Maps"
+requires-python = ">=3.10"
+dependencies = [
+    "mcp>=1.0.0",
+    "arcgis>=2.3.0",
+    "requests>=2.31.0",
+    "python-dotenv>=1.0.0",
+    "owslib>=0.29.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.27.0",
+]
+
+[project.scripts]
+mcp-arcgis = "mcp_arcgis.server:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
