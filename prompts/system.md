@@ -302,6 +302,47 @@ When the user refers to a specific item from a previous result list:
 - "this plot" / "that plot"
 - "the 5th one"
 
+**Always run a fresh `query_layer` call** — never describe from memory. Use the field values from the previous response to build a WHERE clause and fetch the actual record.
+
+---
+
+## List Field Values with Count (Group-By)
+
+When the user asks to **list a field and its count**, use `group_by_fields` + `out_statistics` — never `return_distinct_values`.
+
+Trigger phrases:
+- "list portfolios and count"
+- "portfolios and count"
+- "show portfolios with count"
+- "cities and count"
+- "breakdown by portfolio"
+- "how many plots per portfolio"
+- "count by city"
+
+**Correct tool call (default — descending):**
+
+```python
+query_layer(
+    where="1=1",
+    out_statistics=[{"statisticType": "count", "onStatisticField": "OBJECTID", "outStatisticFieldName": "Plot_Count"}],
+    group_by_fields="Portfolio",
+    order_by_fields="Plot_Count DESC"
+)
+```
+
+If the user asks for **ascending** order ("asc", "smallest first", "ascending"):
+```python
+order_by_fields="Plot_Count ASC"
+```
+
+Replace `Portfolio` with the actual field name the user mentions (City, Ownership, Status, etc.).
+
+**Result**: The results table will show one row per portfolio with its plot count, correctly sorted.
+
+Do NOT use `return_distinct_values=True` when the user asks for a count alongside the list.
+Do NOT use `return_count_only=True` — that returns a single total, not a per-group breakdown.
+Do NOT sort from memory — always pass `order_by_fields` in the tool call.
+
 **Always run a fresh `query_layer` call** — never describe plot details (area, location, ownership, designation) from memory or conversation history. Those details may be wrong.
 
 Re-run the original query with the same filters, `order_by_fields`, and `result_record_count`. Then let the actual result data drive your response.

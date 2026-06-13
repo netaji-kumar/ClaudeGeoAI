@@ -4,6 +4,8 @@ import { api } from '../services/api';
 import { Message, Location } from '../types';
 import { useTranslation } from 'react-i18next';
 import { gisService } from '../services/gisfunctions';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface ChatBotProps {
   onSearch: () => void;
@@ -182,11 +184,11 @@ const GeoBot: React.FC<ChatBotProps> = ({
       },
 
       onDone: () => {
-        // Commit the streamed text as a proper chat bubble
+        // Commit the streamed text as a proper chat bubble (no isSummary — needs markdown rendering)
         if (accumulated) {
           setMessages(prev => [
             ...prev,
-            { text: accumulated, isUser: false, isSummary: true },
+            { text: accumulated, isUser: false },
           ]);
         }
         setStreamingText('');
@@ -284,26 +286,74 @@ const GeoBot: React.FC<ChatBotProps> = ({
             className={`flex ${message.isUser ? 'justify-end' : 'justify-start'} mb-2`}
           >
             <div
-              className={`p-2 rounded-2xl max-w-[70%] ${
+              className={`p-2 rounded-2xl ${
                 message.isUser
-                  ? 'bg-[rgb(28,96,154)] text-white rounded-br-none text-[0.8rem]'
+                  ? 'max-w-[70%] bg-[rgb(28,96,154)] text-white rounded-br-none text-[0.8rem]'
                   : message.isLocation
-                    ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 flex items-center gap-2 rounded-bl-none border border-green-200 dark:border-green-800 text-[0.8rem]'
+                    ? 'max-w-[70%] bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 flex items-center gap-2 rounded-bl-none border border-green-200 dark:border-green-800 text-[0.8rem]'
                     : message.isSummary
-                      ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 flex items-center gap-2 rounded-bl-none border border-blue-200 dark:border-blue-800 italic text-[0.8rem]'
-                      : 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 flex items-center gap-2 rounded-bl-none border border-blue-200 dark:border-blue-800 text-[0.8rem]'
+                      ? 'max-w-[70%] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 flex items-center gap-2 rounded-bl-none border border-blue-200 dark:border-blue-800 italic text-[0.8rem]'
+                      : 'w-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-bl-none border border-blue-200 dark:border-blue-800 text-[0.8rem]'
               }`}
             >
               {message.isLocation && <MapPin size={14} />}
-              {message.text}
+              {message.isUser || message.isLocation || message.isSummary
+                ? message.text
+                : (
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Tables
+                      table: ({ children }) => (
+                        <div className="overflow-x-auto my-2">
+                          <table className="min-w-full text-xs border-collapse border border-blue-200 dark:border-blue-700">{children}</table>
+                        </div>
+                      ),
+                      thead: ({ children }) => <thead className="bg-blue-100 dark:bg-blue-900/40">{children}</thead>,
+                      th: ({ children }) => <th className="border border-blue-200 dark:border-blue-700 px-2 py-1 font-semibold text-left">{children}</th>,
+                      td: ({ children }) => <td className="border border-blue-200 dark:border-blue-700 px-2 py-1">{children}</td>,
+                      // Lists
+                      ul: ({ children }) => <ul className="list-disc list-inside my-1 space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="list-decimal list-inside my-1 space-y-0.5">{children}</ol>,
+                      li: ({ children }) => <li className="ml-2">{children}</li>,
+                      // Inline
+                      strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                      code: ({ children }) => <code className="bg-blue-100 dark:bg-blue-900/60 rounded px-1 font-mono text-[0.75rem]">{children}</code>,
+                      // Paragraphs — remove default block margin so bubbles stay compact
+                      p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                    }}
+                  >
+                    {message.text}
+                  </ReactMarkdown>
+                )
+              }
             </div>
           </div>
         ))}
         {/* Streaming text bubble — appears while Sonnet is typing */}
         {loading && streamingText && (
           <div className="flex justify-start mb-2">
-            <div className="p-2 rounded-2xl max-w-[70%] bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-bl-none border border-blue-200 dark:border-blue-800 text-sm">
-              {streamingText}
+            <div className="p-2 rounded-2xl w-full bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-300 rounded-bl-none border border-blue-200 dark:border-blue-800 text-[0.8rem]">
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  table: ({ children }) => (
+                    <div className="overflow-x-auto my-2">
+                      <table className="min-w-full text-xs border-collapse border border-blue-200 dark:border-blue-700">{children}</table>
+                    </div>
+                  ),
+                  thead: ({ children }) => <thead className="bg-blue-100 dark:bg-blue-900/40">{children}</thead>,
+                  th: ({ children }) => <th className="border border-blue-200 dark:border-blue-700 px-2 py-1 font-semibold text-left">{children}</th>,
+                  td: ({ children }) => <td className="border border-blue-200 dark:border-blue-700 px-2 py-1">{children}</td>,
+                  ul: ({ children }) => <ul className="list-disc list-inside my-1 space-y-0.5">{children}</ul>,
+                  ol: ({ children }) => <ol className="list-decimal list-inside my-1 space-y-0.5">{children}</ol>,
+                  li: ({ children }) => <li className="ml-2">{children}</li>,
+                  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                  p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                }}
+              >
+                {streamingText}
+              </ReactMarkdown>
               <span className="inline-block w-0.5 h-3.5 ml-0.5 bg-blue-400 dark:bg-blue-500 animate-pulse align-text-bottom" />
             </div>
           </div>

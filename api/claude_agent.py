@@ -857,7 +857,7 @@ def run_agent_stream(
             try:
                 with client.messages.stream(
                     model      = response_model,
-                    max_tokens = 300,
+                    max_tokens = 1024,
                     system     = conv_system,
                     messages   = conv_messages,
                 ) as stream:
@@ -1033,7 +1033,7 @@ def run_agent_stream(
         try:
             with client.messages.stream(
                 model      = response_model,
-                max_tokens = 600,
+                max_tokens = 2048,
                 system     = system_param,
                 messages   = messages,
             ) as stream:
@@ -1366,7 +1366,7 @@ def run_agent_stream_mcp(
         final_text = ""
         try:
             with client.messages.stream(
-                model=response_model, max_tokens=600,
+                model=response_model, max_tokens=2048,
                 system=system_param, messages=messages,
             ) as stream:
                 for chunk in stream.text_stream:

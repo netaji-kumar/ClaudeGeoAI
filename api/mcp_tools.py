@@ -270,12 +270,32 @@ def execute_query_layer(params: dict, geometry_override: dict = None) -> dict:
     # Statistics / group-by
     if params.get("out_statistics") or params.get("group_by_fields"):
         stats_rows = [f["attributes"] for f in raw_features if f.get("attributes")]
+        # Detect the count/stat column (first numeric-looking column)
         count_col  = None
         if stats_rows:
             for k in stats_rows[0]:
-                if k.upper() in ("CNT", "COUNT", "TOTAL", "RECORD_COUNT"):
+                if k.upper() in ("CNT", "COUNT", "TOTAL", "RECORD_COUNT", "PLOT_COUNT"):
                     count_col = k
                     break
+            if not count_col:
+                # Fallback: pick any column whose name contains "count" case-insensitively
+                for k in stats_rows[0]:
+                    if "count" in k.lower() or "cnt" in k.lower():
+                        count_col = k
+                        break
+        # Sort by count column descending by default (Python-side, guaranteed correct)
+        # order_by_fields from ArcGIS is unreliable for stats queries on some servers
+        if count_col and stats_rows:
+            order_raw = (params.get("order_by_fields") or "").upper()
+            reverse   = "ASC" not in order_raw  # default DESC; only ASC if explicitly requested
+            try:
+                stats_rows = sorted(
+                    stats_rows,
+                    key=lambda r: (r.get(count_col) or 0),
+                    reverse=reverse,
+                )
+            except Exception:
+                pass  # leave unsorted if anything fails
         total_from_stats: int = 0
         if count_col:
             for row in stats_rows:
