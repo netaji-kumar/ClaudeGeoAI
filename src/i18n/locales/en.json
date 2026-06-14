@@ -50,7 +50,7 @@
   "chat": {
     "title": "GeoBot",
     "newChat": "Start New Chat",
-    "placeholder": "Type a query (e.g., 'Show me seha plots')",
+    "placeholder": "Type a query (e.g., 'Show me vacant plots')",
     "locationPlaceholder": "Ask about the selected location...",
     "sending": "Sending...",
     "send": "Send Message",

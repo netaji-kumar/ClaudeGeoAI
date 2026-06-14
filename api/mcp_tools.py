@@ -50,7 +50,7 @@ TOOL_DEFINITIONS = [
     {
         "name": "query_layer",
         "description": (
-            "Query the ADQ landbank ArcGIS feature layer (layer 0 - all portfolios). "
+            "Query the landbank ArcGIS feature layer (layer 0 - all portfolios). "
             "Use for filtering, sorting, counting, statistics, spatial queries, and distinct value lookups."
         ),
         "input_schema": {

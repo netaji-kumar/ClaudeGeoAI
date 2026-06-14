@@ -17,7 +17,7 @@ Working with geospatial data usually requires GIS expertise — you need to know
 ## What You Can Do
 
 **Ask questions in plain English**
-Type queries like "How many plots does ADQ own?" or "Show me operational properties in Al Ain" and get live results on the map with a written summary.
+Type queries like "Show me operational properties in Al Ain" and get live results on the map with a written summary.
 
 **Click or draw on the map**
 Click a point or draw a polygon boundary on the map — GeoAI automatically detects the geometry and finds all features within that area.
