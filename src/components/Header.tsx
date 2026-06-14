@@ -3,7 +3,7 @@ import { HelpCircle, Sun, Moon, Map, Zap, Server } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 interface HeaderProps {
   onToggleHelp: () => void;
