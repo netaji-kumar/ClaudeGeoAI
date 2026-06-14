@@ -1,6 +1,6 @@
 # GeoAI — Conversational GIS Platform
 
-https://claudegeoai.onrender.com/
+https://geoai-claude.onrender.com/
 
 GeoAI lets you explore land and property data through plain English. Instead of navigating GIS software or writing queries, you type a question — *"Show me vacant Seha plots in Abu Dhabi"* — and the map updates, the table fills, and you get a written summary, all within a few seconds.
 
