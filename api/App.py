@@ -320,7 +320,6 @@ if os.path.isdir(_DIST):
             return send_from_directory(_DIST, path)
         return send_from_directory(_DIST, "index.html")
 
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(debug=False, host="0.0.0.0", port=port)
