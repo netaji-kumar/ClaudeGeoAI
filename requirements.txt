@@ -4,3 +4,5 @@ anthropic
 python-dotenv
 requests
 urllib3
+gunicorn
+gevent
