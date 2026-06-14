@@ -3,7 +3,8 @@ import { HelpCircle, Sun, Moon, Map, Zap, Server } from 'lucide-react';
 import LanguageSwitcher from './LanguageSwitcher';
 import { useTranslation } from 'react-i18next';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+// Always use relative URL — works in both dev (Vite proxy) and production (same origin)
+const MODE_URL = '/api/mode';
 
 interface HeaderProps {
   onToggleHelp: () => void;
@@ -19,7 +20,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleHelp, isDarkMode, toggleDarkMod
 
   // Fetch current mode on mount
   useEffect(() => {
-    fetch(`${API_URL}/api/mode`)
+    fetch(MODE_URL)
       .then(r => r.json())
       .then(d => setBackendMode(d.mode === 'MCP' ? 'MCP' : 'API'))
       .catch(() => {/* server not running yet — default to API */});
@@ -33,7 +34,7 @@ const Header: React.FC<HeaderProps> = ({ onToggleHelp, isDarkMode, toggleDarkMod
     setBackendMode(next);
     setSwitching(true);
     try {
-      const res = await fetch(`${API_URL}/api/mode`, {
+      const res = await fetch(MODE_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ mode: next }),
