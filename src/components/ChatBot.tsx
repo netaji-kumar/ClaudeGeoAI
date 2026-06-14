@@ -145,6 +145,13 @@ const GeoBot: React.FC<ChatBotProps> = ({
     setStreamingText('');
     setStatusText('');
 
+    // Safety net: force-reset loading after 90s in case SSE stream dies silently on proxy (Render)
+    const safetyTimer = setTimeout(() => {
+      setLoading(false);
+      setStreamingText('');
+      setStatusText('');
+    }, 90_000);
+
     onLocationsUpdate([]);
     onLocationSelect(null);
 
@@ -176,6 +183,7 @@ const GeoBot: React.FC<ChatBotProps> = ({
       },
 
       onError: (message: string) => {
+        clearTimeout(safetyTimer);
         setMessages(prev => [...prev, { text: message, isUser: false }]);
         setStreamingText('');
         setStatusText('');
@@ -184,39 +192,44 @@ const GeoBot: React.FC<ChatBotProps> = ({
       },
 
       onDone: () => {
-        // Commit the streamed text as a proper chat bubble (no isSummary — needs markdown rendering)
-        if (accumulated) {
-          setMessages(prev => [
-            ...prev,
-            { text: accumulated, isUser: false },
-          ]);
-        }
-        setStreamingText('');
-        setStatusText('');
-
-        if (resultData?.results?.length > 0) {
-          const r            = resultData.results[0];
-          const attrs        = r.attributes        ?? [];
-          const stats        = r.stats             ?? [];
-          const distVals     = r.distinct_values   ?? [];
-          const toolExecuted = r.tool_executed     ?? false;
-
-          if (attrs.length > 0) {
-            // GIS features returned — update map + table + zoom
-            onLocationsUpdate(attrs);
-            onSearch();
-            setTimeout(() => gisService.zoomToFeatures(attrs), 100);
-          } else if (toolExecuted) {
-            // Tool ran but returned 0 features (e.g. stats query, count only,
-            // or a filter that matched nothing) → clear the map
-            onLocationsUpdate([]);
+        clearTimeout(safetyTimer);
+        // Always reset loading — even if anything below throws
+        try {
+          // Commit the streamed text as a proper chat bubble (no isSummary — needs markdown rendering)
+          if (accumulated) {
+            setMessages(prev => [
+              ...prev,
+              { text: accumulated, isUser: false },
+            ]);
           }
-          // toolExecuted=false means Haiku answered conversationally (should not
-          // happen with tool_choice:any, but kept as a safety net) → preserve map
-        }
+          setStreamingText('');
+          setStatusText('');
 
-        setLoading(false);
-        setTimeout(() => inputRef.current?.focus(), 0);
+          if (resultData?.results?.length > 0) {
+            const r            = resultData.results[0];
+            const attrs        = r.attributes        ?? [];
+            const stats        = r.stats             ?? [];
+            const distVals     = r.distinct_values   ?? [];
+            const toolExecuted = r.tool_executed     ?? false;
+
+            if (attrs.length > 0) {
+              // GIS features returned — update map + table + zoom
+              onLocationsUpdate(attrs);
+              onSearch();
+              setTimeout(() => gisService.zoomToFeatures(attrs), 100);
+            } else if (toolExecuted) {
+              // Tool ran but returned 0 features (e.g. stats query, count only,
+              // or a filter that matched nothing) → clear the map
+              onLocationsUpdate([]);
+            }
+            // toolExecuted=false means Haiku answered conversationally → preserve map
+          }
+        } catch (err) {
+          console.error('[onDone] Error processing result:', err);
+        } finally {
+          setLoading(false);
+          setTimeout(() => inputRef.current?.focus(), 0);
+        }
       },
     };
 
