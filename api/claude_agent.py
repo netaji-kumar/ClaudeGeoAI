@@ -57,13 +57,75 @@ _SKILL_TRIGGERS = {
 }
 
 def _detect_skill(message):
+    """Return skill name (without .md) if a trigger matches, else empty string."""
     low = message.lower().strip()
     for filename, triggers in _SKILL_TRIGGERS.items():
         if any(t in low for t in triggers):
-            skill_path = _SKILLS_DIR / filename
-            if skill_path.exists():
-                return skill_path.read_text(encoding="utf-8")
+            return filename.replace(".md", "")
     return ""
+
+
+def _run_skill_portfolio_report() -> Dict[str, Any]:
+    """Execute 3 ArcGIS queries and merge into a portfolio report.
+
+    Returns dict with keys: stats (list of rows), context (str for Sonnet).
+    Each stats row: {Portfolio, Total_Plots, Vacant_Plots, Operational_Plots}
+    """
+    q1 = execute_query_layer({
+        "where": "1=1",
+        "out_statistics": [{"statisticType": "count", "onStatisticField": "OBJECTID",
+                            "outStatisticFieldName": "Total_Plots"}],
+        "group_by_fields": "Portfolio",
+        "order_by_fields": "Total_Plots DESC",
+    })
+    q2 = execute_query_layer({
+        "where": "UPPER(Property_Status) LIKE UPPER('%Vacant%')",
+        "out_statistics": [{"statisticType": "count", "onStatisticField": "OBJECTID",
+                            "outStatisticFieldName": "Vacant_Plots"}],
+        "group_by_fields": "Portfolio",
+    })
+    q3 = execute_query_layer({
+        "where": "UPPER(Property_Status) LIKE UPPER('%Operational%')",
+        "out_statistics": [{"statisticType": "count", "onStatisticField": "OBJECTID",
+                            "outStatisticFieldName": "Operational_Plots"}],
+        "group_by_fields": "Portfolio",
+    })
+
+    totals  = {r.get("Portfolio") or r.get("portfolio"): r.get("Total_Plots", 0)
+               for r in (q1.get("stats") or [])}
+    vacants = {r.get("Portfolio") or r.get("portfolio"): r.get("Vacant_Plots", 0)
+               for r in (q2.get("stats") or [])}
+    ops     = {r.get("Portfolio") or r.get("portfolio"): r.get("Operational_Plots", 0)
+               for r in (q3.get("stats") or [])}
+
+    merged = []
+    for portfolio, total in sorted(totals.items(), key=lambda x: -(x[1] or 0)):
+        merged.append({
+            "Portfolio":         portfolio,
+            "Total_Plots":       total or 0,
+            "Vacant_Plots":      vacants.get(portfolio, 0),
+            "Operational_Plots": ops.get(portfolio, 0),
+        })
+
+    grand_total   = sum(r["Total_Plots"]       for r in merged)
+    grand_vacant  = sum(r["Vacant_Plots"]      for r in merged)
+    grand_ops     = sum(r["Operational_Plots"] for r in merged)
+
+    # Build markdown table for Sonnet context
+    lines = [
+        "| Portfolio | Total Plots | Vacant | Operational |",
+        "|-----------|-------------|--------|-------------|",
+    ]
+    for r in merged:
+        lines.append(f"| {r['Portfolio']} | {r['Total_Plots']} | {r['Vacant_Plots']} | {r['Operational_Plots']} |")
+    lines.append(f"| **Total** | **{grand_total}** | **{grand_vacant}** | **{grand_ops}** |")
+    table_md = "\n".join(lines)
+
+    context = (
+        f"Portfolio report data (from 3 ArcGIS queries):\n\n{table_md}\n\n"
+        "Present this as a clean markdown table. Add a one-line summary above it. Keep it concise."
+    )
+    return {"stats": merged, "context": context, "table_md": table_md}
 
 
 _client = None
@@ -798,8 +860,6 @@ def run_agent_stream(
 
     skill_content = _detect_skill(user_message)
     full_system  = _STATIC_PROMPT + "\n\n---\n\n" + _get_field_context()
-    if skill_content:
-        full_system += "\n\n---\n\n" + skill_content
     system_param = [{"type": "text", "text": full_system, "cache_control": {"type": "ephemeral"}}]
 
     user_content = user_message
@@ -915,10 +975,32 @@ def run_agent_stream(
     _spatial_first_done: bool = False
     ran_tools = False   # True once at least one tool_result round trip completed
 
+    # ── Skill short-circuit ────────────────────────────────────────────
+    if skill_content == "portfolio_report":
+        yield {"type": "status", "text": "Running portfolio report…"}
+        try:
+            skill_result = _run_skill_portfolio_report()
+            all_stats = skill_result["stats"]
+            ran_tools = True
+            messages.append({"role": "assistant", "content": [
+                {"type": "text", "text": "I queried the GIS database 3 times and gathered the portfolio report data."}
+            ]})
+            messages.append({"role": "user", "content":
+                f"Portfolio report data (3 ArcGIS queries merged):\n\n{skill_result['context']}"})
+        except Exception as exc:
+            logger.error(f"[Skill] portfolio_report failed: {exc}")
+            final_text = f"Portfolio report is unavailable right now: {exc}"
+            yield {"type": "text_delta", "text": final_text}
+            yield {"type": "result", "data": {"results": [{"description": final_text,
+                "message": final_text, "attributes": []}]}}
+            return
+
     yield {"type": "status", "text": "Analyzing your query…"}
 
     # ── Phase 1: tool-use loop with fast Haiku ────────────────────────────────
     for iteration in range(1, 5):
+        if ran_tools:
+            break  # skill already ran all queries
         # First iteration: force a tool call so Haiku never answers from history
         # context (fixes "same query second time shows no results" bug).
         # Subsequent iterations: auto — lets Haiku stop once it has what it needs.
@@ -1239,8 +1321,6 @@ def run_agent_stream_mcp(
     client       = _get_client()
     skill_content = _detect_skill(user_message)
     full_system  = _STATIC_PROMPT + "\n\n---\n\n" + _get_field_context()
-    if skill_content:
-        full_system += "\n\n---\n\n" + skill_content
     system_param = [{"type": "text", "text": full_system, "cache_control": {"type": "ephemeral"}}]
 
     user_content = user_message
