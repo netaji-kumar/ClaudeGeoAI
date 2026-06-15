@@ -91,15 +91,25 @@ def _run_skill_portfolio_report() -> Dict[str, Any]:
         "group_by_fields": "Portfolio",
     })
 
-    totals  = {r.get("Portfolio") or r.get("portfolio"): r.get("Total_Plots", 0)
-               for r in (q1.get("stats") or [])}
-    vacants = {r.get("Portfolio") or r.get("portfolio"): r.get("Vacant_Plots", 0)
-               for r in (q2.get("stats") or [])}
-    ops     = {r.get("Portfolio") or r.get("portfolio"): r.get("Operational_Plots", 0)
-               for r in (q3.get("stats") or [])}
+    def _merge_stat(rows: list, val_key: str) -> dict:
+        """Build {portfolio: max_count} -- handles duplicate 0-count rows ArcGIS returns."""
+        out: dict = {}
+        for r in rows:
+            name = r.get("Portfolio") or r.get("portfolio") or ""
+            if not name:
+                continue
+            val = int(r.get(val_key) or 0)
+            out[name] = max(out.get(name, 0), val)
+        return out
+
+    totals  = _merge_stat(q1.get("stats") or [], "Total_Plots")
+    vacants = _merge_stat(q2.get("stats") or [], "Vacant_Plots")
+    ops     = _merge_stat(q3.get("stats") or [], "Operational_Plots")
 
     merged = []
     for portfolio, total in sorted(totals.items(), key=lambda x: -(x[1] or 0)):
+        if not total:
+            continue  # skip 0-count duplicate rows ArcGIS sometimes returns
         merged.append({
             "Portfolio":         portfolio,
             "Total_Plots":       total or 0,
@@ -775,7 +785,13 @@ _TOOL_MODEL = "claude-haiku-4-5-20251001"
 # Regex that strips leaked tool-call XML that Haiku sometimes emits when
 # tool_choice="any" is used (it writes a text preamble alongside the tool_use
 # block).  Applied to ALL text chunks before they are yielded to the frontend.
-_FUNC_CALL_RE = re.compile(r'<function_calls>.*?</function_calls>', re.DOTALL | re.IGNORECASE)
+_FUNC_CALL_RE = re.compile(
+    r'(<function_calls>.*?</function_calls>'
+    r'|<tool_call>.*?</tool_call>'
+    r'|<tool_response>.*?</tool_response>'
+    r'|<tool_calls>.*?</tool_calls>)',
+    re.DOTALL | re.IGNORECASE,
+)
 
 # ---------------------------------------------------------------------------
 # Prompt injection guard
