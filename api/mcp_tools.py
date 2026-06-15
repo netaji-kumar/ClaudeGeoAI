@@ -204,7 +204,10 @@ def execute_query_layer(params: dict, geometry_override: dict = None) -> dict:
         q["returnDistinctValues"] = "true"
         q["returnGeometry"]       = "false"
     if params.get("out_statistics"):
-        q["outStatistics"]  = params["out_statistics"]
+        stats_val = params["out_statistics"]
+        # requests serialises a Python list as dict keys (wrong for ArcGIS);
+        # must send as a JSON string so ArcGIS receives a proper JSON array.
+        q["outStatistics"]  = json.dumps(stats_val) if isinstance(stats_val, (list, dict)) else stats_val
         q["returnGeometry"] = "false"
     if params.get("group_by_fields"):
         q["groupByFieldsForStatistics"] = params["group_by_fields"]
@@ -274,13 +277,14 @@ def execute_query_layer(params: dict, geometry_override: dict = None) -> dict:
         count_col  = None
         if stats_rows:
             for k in stats_rows[0]:
-                if k.upper() in ("CNT", "COUNT", "TOTAL", "RECORD_COUNT", "PLOT_COUNT"):
+                if k.upper() in ("CNT", "COUNT", "TOTAL", "RECORD_COUNT", "PLOT_COUNT",
+                                   "TOTAL_PLOTS", "VACANT_PLOTS", "OPERATIONAL_PLOTS"):
                     count_col = k
                     break
             if not count_col:
-                # Fallback: pick any column whose name contains "count" case-insensitively
+                # Fallback: pick any column whose name contains "count", "cnt", or "plots"
                 for k in stats_rows[0]:
-                    if "count" in k.lower() or "cnt" in k.lower():
+                    if "count" in k.lower() or "cnt" in k.lower() or "plots" in k.lower():
                         count_col = k
                         break
         # Sort by count column descending by default (Python-side, guaranteed correct)
@@ -334,9 +338,4 @@ def execute_query_layer(params: dict, geometry_override: dict = None) -> dict:
         "features":   raw_features,
         "summary":    f"Found {len(processed)} feature(s) where {params.get('where', '1=1')}",
     }
-    _cache_set(ck, result)
-    return result
-
-
-def execute_get_field_info(field_cache: dict) -> dict:
-    return field_cache
+    _cache_set
