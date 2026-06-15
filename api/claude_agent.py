@@ -44,6 +44,28 @@ SYSTEM_MD      = _load_md("system.md")
 QUERY_RULES_MD = _load_md("query_rules.md")
 _STATIC_PROMPT = SYSTEM_MD + "\n\n---\n\n" + QUERY_RULES_MD
 
+# ---------------------------------------------------------------------------
+# Skill loader
+# ---------------------------------------------------------------------------
+_SKILLS_DIR = _PROMPTS_DIR / "skills"
+
+_SKILL_TRIGGERS = {
+    "portfolio_report.md": [
+        "portfolio report", "portfolio summary", "portfolio breakdown",
+        "report of portfolios", "all portfolios report", "portfolios report",
+    ],
+}
+
+def _detect_skill(message):
+    low = message.lower().strip()
+    for filename, triggers in _SKILL_TRIGGERS.items():
+        if any(t in low for t in triggers):
+            skill_path = _SKILLS_DIR / filename
+            if skill_path.exists():
+                return skill_path.read_text(encoding="utf-8")
+    return ""
+
+
 _client = None
 
 def _get_client():
@@ -154,6 +176,8 @@ _GIS_KEYWORDS = {
     "polygon", "spatial",
     # count/stats
     "how many", "statistics", "count", "average",
+    # report / summary queries
+    "report", "summary", "breakdown",
     # ranking/comparison
     "largest", "smallest", "biggest",
     # range operators — full phrases only to avoid partial "greater" match
@@ -772,7 +796,10 @@ def run_agent_stream(
 
     client = _get_client()
 
+    skill_content = _detect_skill(user_message)
     full_system  = _STATIC_PROMPT + "\n\n---\n\n" + _get_field_context()
+    if skill_content:
+        full_system += "\n\n---\n\n" + skill_content
     system_param = [{"type": "text", "text": full_system, "cache_control": {"type": "ephemeral"}}]
 
     user_content = user_message
@@ -1210,7 +1237,10 @@ def run_agent_stream_mcp(
         return
 
     client       = _get_client()
+    skill_content = _detect_skill(user_message)
     full_system  = _STATIC_PROMPT + "\n\n---\n\n" + _get_field_context()
+    if skill_content:
+        full_system += "\n\n---\n\n" + skill_content
     system_param = [{"type": "text", "text": full_system, "cache_control": {"type": "ephemeral"}}]
 
     user_content = user_message
