@@ -2,7 +2,7 @@ services:
   - type: web
     name: geoai-api
     runtime: python
-    buildCommand: npm install && npm run build && pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt
     startCommand: gunicorn --worker-class gevent --workers 2 --timeout 120 --bind 0.0.0.0:$PORT "api.App:app"
     envVars:
       - key: ANTHROPIC_API_KEY
