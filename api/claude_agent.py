@@ -1151,11 +1151,24 @@ def run_agent_stream(
     if ran_tools:
         response_model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         final_text = ""
+        # Response-phase system: suffix tells Sonnet to write prose only.
+        # Without this, queries like "key highlights" cause Sonnet to emit
+        # XML <function_calls> (to fetch more stats), which _clean_chunk
+        # strips entirely — leaving accumulated="" and no chat bubble.
+        _resp_text = (
+            full_system
+            + "\n\n---\n\n[RESPONSE MODE] The GIS query has been executed. "
+            "Write a clear, helpful response based on the tool results already "
+            "in this conversation. Do NOT call any additional tools or emit "
+            "XML function-call tags."
+        )
+        _resp_sys = [{"type": "text", "text": _resp_text,
+                      "cache_control": {"type": "ephemeral"}}]
         try:
             with client.messages.stream(
                 model      = response_model,
                 max_tokens = 2048,
-                system     = system_param,
+                system     = _resp_sys,
                 messages   = messages,
             ) as stream:
                 for chunk in stream.text_stream:
@@ -1486,10 +1499,19 @@ def run_agent_stream_mcp(
     if ran_tools:
         response_model = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
         final_text = ""
+        _resp_text_mcp = (
+            full_system
+            + "\n\n---\n\n[RESPONSE MODE] The GIS query has been executed. "
+            "Write a clear, helpful response based on the tool results already "
+            "in this conversation. Do NOT call any additional tools or emit "
+            "XML function-call tags."
+        )
+        _resp_sys_mcp = [{"type": "text", "text": _resp_text_mcp,
+                          "cache_control": {"type": "ephemeral"}}]
         try:
             with client.messages.stream(
                 model=response_model, max_tokens=2048,
-                system=system_param, messages=messages,
+                system=_resp_sys_mcp, messages=messages,
             ) as stream:
                 for chunk in stream.text_stream:
                     clean = _clean_chunk(chunk)
