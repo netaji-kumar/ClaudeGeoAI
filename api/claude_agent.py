@@ -131,10 +131,7 @@ def _run_skill_portfolio_report() -> Dict[str, Any]:
     lines.append(f"| **Total** | **{grand_total}** | **{grand_vacant}** | **{grand_ops}** |")
     table_md = "\n".join(lines)
 
-    context = (
-        f"Portfolio report data (from 3 ArcGIS queries):\n\n{table_md}\n\n"
-        "Present this as a clean markdown table. Add a one-line summary above it. Keep it concise."
-    )
+    context = f"Portfolio report data (from 3 ArcGIS queries):\n\n{table_md}"
     return {"stats": merged, "context": context, "table_md": table_md}
 
 
@@ -1001,8 +998,7 @@ def run_agent_stream(
             messages.append({"role": "assistant", "content": [
                 {"type": "text", "text": "I queried the GIS database 3 times and gathered the portfolio report data."}
             ]})
-            messages.append({"role": "user", "content":
-                f"Portfolio report data (3 ArcGIS queries merged):\n\n{skill_result['context']}"})
+            messages.append({"role": "user", "content": skill_result['context']})
         except Exception as exc:
             logger.error(f"[Skill] portfolio_report failed: {exc}")
             final_text = f"Portfolio report is unavailable right now: {exc}"
