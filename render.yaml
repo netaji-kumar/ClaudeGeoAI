@@ -7,4 +7,5 @@ services:
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
-      - key: VITE_MAP_
+      - key: VITE_MAP_SERVICE_URL
+        sync: false
