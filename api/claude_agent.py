@@ -1176,6 +1176,17 @@ def run_agent_stream(
                     if clean:
                         final_text += clean
                         yield {"type": "text_delta", "text": clean}
+            # Guaranteed fallback: if Sonnet produced nothing (e.g. all text
+            # was XML that _clean_chunk stripped), yield a concise summary so
+            # the chat bubble is never empty after a successful GIS query.
+            if not final_text:
+                if all_attributes:
+                    final_text = f"Found **{len(all_attributes)}** record(s) matching your query."
+                elif all_stats:
+                    final_text = "Statistics computed successfully."
+                else:
+                    final_text = "Query completed."
+                yield {"type": "text_delta", "text": final_text}
         except Exception as exc:
             logger.error(f"[Stream] Sonnet streaming error: {exc}")
             if not final_text:
@@ -1518,6 +1529,14 @@ def run_agent_stream_mcp(
                     if clean:
                         final_text += clean
                         yield {"type": "text_delta", "text": clean}
+            if not final_text:
+                if all_attributes:
+                    final_text = f"Found **{len(all_attributes)}** record(s) matching your query."
+                elif all_stats:
+                    final_text = "Statistics computed successfully."
+                else:
+                    final_text = "Query completed."
+                yield {"type": "text_delta", "text": final_text}
         except Exception as exc:
             logger.error("[MCP] Sonnet error: %s", exc)
             final_text = f"Found {len(all_attributes)} record(s)." if all_attributes else "Query completed."
