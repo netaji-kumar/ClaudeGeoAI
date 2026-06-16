@@ -310,11 +310,15 @@ def upload_file():
 _DIST = os.path.join(_ROOT, "dist")
 
 if os.path.isdir(_DIST):
+    @app.route("/assets/<path:filename>")
+    def serve_assets(filename):
+        return send_from_directory(os.path.join(_DIST, "assets"), filename)
+
     @app.route("/", defaults={"path": ""})
     @app.route("/<path:path>")
     def serve_react(path):
-        target = os.path.join(_DIST, path)
-        if path and os.path.exists(target):
+        full = os.path.join(_DIST, path)
+        if path and os.path.isfile(full):
             return send_from_directory(_DIST, path)
         return send_from_directory(_DIST, "index.html")
 
