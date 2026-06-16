@@ -1,15 +1,8 @@
 /**
- * api.ts — GeoAI frontend API service (v2, Claude MCP architecture).
+ * api.ts — GeoAI frontend API service.
  *
  * sendChatMessageStream POSTs to /api/chat and reads the SSE stream.
  * Events: status | text_delta | result | error | [DONE]
- *
- * The backend runs:
- *   Haiku  → tool_use (query_layer)  → ArcGIS query
- *   Sonnet → streamed natural-language response
- *
- * ChatBot.tsx receives text_delta events as they arrive (~2-3 s after send)
- * and the final result event with attributes for the map and table (~4-6 s).
  */
 
 import axios from 'axios';
@@ -20,7 +13,7 @@ import { Location } from '../types';
 // ---------------------------------------------------------------------------
 const axiosInstance = axios.create({
   baseURL: '/api',
-  timeout: 60000,          // agent loop can take a few seconds longer
+  timeout: 60000,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -47,11 +40,11 @@ axiosInstance.interceptors.response.use(
 
 /** One result entry from the Claude agent. */
 export interface AgentResult {
-  description:     string;
-  message:         string;
-  attributes:      Location[];   // processed features with coordinates — for map + table
-  features:        any[];        // raw ArcGIS ESRI-JSON features
-  stats?:          any[];        // present for aggregation queries
+  description:      string;
+  message:          string;
+  attributes:       Location[];  // processed features with coordinates — for map + table
+  features:         any[];       // raw ArcGIS ESRI-JSON features
+  stats?:           any[];       // present for aggregation queries
   distinct_values?: string[];    // present for distinct-value queries
 }
 
@@ -59,32 +52,6 @@ export interface AgentResult {
 export interface ChatResponse {
   results?: AgentResult[];
   error?:   string;
-}
-
-interface FaissEntry {
-  query: string;
-  answer: string;
-  selectedLayer?: string;
-  selectedFields?: string[];
-}
-
-interface ReportConfig {
-  name: string;
-  query: string;
-  selectedLayer?: string;
-  selectedFields?: string[];
-}
-
-interface MapServiceConfig {
-  serviceUrl: string;
-  selectedLayers: { layerId: string; layerName: string; fields: string[] }[];
-}
-
-interface LayerInfo {
-  id: string;
-  name: string;
-  type: string;
-  fields: string[];
 }
 
 interface SupportEmailResponse {
@@ -96,16 +63,6 @@ interface SupportEmailResponse {
 // API
 // ---------------------------------------------------------------------------
 export const api = {
-
-  /** Fetch static location list (legacy — returns empty array in v2). */
-  getLocations: async (): Promise<Location[]> => {
-    try {
-      const response = await axiosInstance.get<Location[]>('/locations');
-      return response.data;
-    } catch {
-      return [];
-    }
-  },
 
   /**
    * Send a chat message and consume the SSE stream from the Claude agent.
@@ -320,56 +277,6 @@ export const api = {
     })();
 
     return controller;
-  },
-
-  /** @deprecated Use sendChatMessageStream for new code. */
-  sendChatMessage: async (
-    chatHistory: { text: string; isUser: boolean }[],
-    selectedLocation?: [number, number] | null,
-    polygonPoints?: [number, number][] | null
-  ): Promise<ChatResponse> => {
-    return new Promise((resolve, reject) => {
-      let result: ChatResponse | null = null;
-      api.sendChatMessageStream(chatHistory, selectedLocation, polygonPoints, {
-        onStatus:    () => {},
-        onTextDelta: () => {},
-        onResult:    (data) => { result = data; },
-        onError:     (msg)  => reject(new Error(msg)),
-        onDone:      ()     => resolve(result ?? { results: [] }),
-      });
-    });
-  },
-
-  getMapServiceLayers: async (serviceUrl: string): Promise<LayerInfo[]> => {
-    if (!serviceUrl?.trim()) throw new Error('Service URL is required');
-    const response = await axios.get(`${serviceUrl}?f=json`);
-    if (!response.data?.layers) throw new Error('Invalid service response');
-    return response.data.layers.map((layer: any) => ({
-      id:     layer.id,
-      name:   layer.name,
-      type:   layer.type,
-      fields: [],
-    }));
-  },
-
-  fetchLayerFields: async (layerUrl: string): Promise<string[]> => {
-    const response = await axios.get(`${layerUrl}?f=json`);
-    return response.data?.fields?.map((f: any) => f.name) ?? [];
-  },
-
-  updateMapServices: async (services: MapServiceConfig[]): Promise<void> => {
-    if (!services?.length) throw new Error('No services provided');
-    await axiosInstance.post('/map-services/update', { services });
-  },
-
-  updateFaissEntries: async (entries: FaissEntry[]): Promise<void> => {
-    if (!entries?.length) throw new Error('No entries provided');
-    await axiosInstance.post('/faiss/update', { entries });
-  },
-
-  updateReportConfigs: async (reports: ReportConfig[]): Promise<void> => {
-    if (!reports?.length) throw new Error('No reports provided');
-    await axiosInstance.post('/reports/update', { reports });
   },
 
   sendSupportEmail: async (

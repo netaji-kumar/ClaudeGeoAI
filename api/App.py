@@ -1,12 +1,10 @@
 """
-GeoAI — Flask backend (Claude MCP tool-use architecture).
+GeoAI — Flask backend.
 
 Thin routing layer only. All logic lives in:
   claude_agent.py  — agentic loop
   mcp_tools.py     — ArcGIS tool execution
   prompts/*.md     — system prompt + query rules
-
-No FAISS required — field info fetched directly from the ArcGIS REST API at startup.
 """
 
 import json
@@ -47,7 +45,7 @@ app.json.sort_keys = False
 CORS(app)
 
 # ---------------------------------------------------------------------------
-# Startup: build field cache directly from ArcGIS REST API (no FAISS)
+# Startup: build field cache from ArcGIS REST API
 # ---------------------------------------------------------------------------
 BASE_QUERY_URL = f"{MAP_SERVICE_URL}/0/query"
 
